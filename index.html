@@ -679,21 +679,65 @@
     });
     document.addEventListener('mouseup', onPointerUp);
 
+    // ── LONG PRESS (touch delete) ──
+    let longPressTarget = null;
+    let longPressStart = null;
+    let longPressRAF = null;
+    const LONG_PRESS_MS = 650;
+
+    function startLongPress(idx) {
+      clearLongPress();
+      longPressTarget = idx;
+      longPressStart = performance.now();
+      selected = idx;
+      animateLongPress();
+    }
+
+    function clearLongPress() {
+      if (longPressRAF) { cancelAnimationFrame(longPressRAF); longPressRAF = null; }
+      longPressTarget = null;
+      longPressStart = null;
+    }
+
+    function animateLongPress() {
+      if (longPressTarget === null) return;
+      const progress = Math.min(1, (performance.now() - longPressStart) / LONG_PRESS_MS);
+      render();
+      if (progress < 1) {
+        longPressRAF = requestAnimationFrame(animateLongPress);
+      } else {
+        if (navigator.vibrate) navigator.vibrate(40);
+        saveState();
+        placed.splice(longPressTarget, 1);
+        clearLongPress();
+        selected = null;
+        render();
+      }
+    }
+
     // ── TOUCH EVENTS ──
     canvas.addEventListener('touchstart', e => {
       e.preventDefault();
       const t = e.touches[0];
+      const { x, y } = canvasPos(t.clientX, t.clientY);
+      const fx = toFt(x), fy = toFt(y);
+      const idx = getObjAt(fx, fy);
+      if (idx !== -1 && !activeObjType) {
+        startLongPress(idx); // long press to delete
+      }
       onPointerDown(t.clientX, t.clientY);
     }, { passive: false });
 
     canvas.addEventListener('touchmove', e => {
       e.preventDefault();
+      clearLongPress(); // cancel long press if finger moves
       const t = e.touches[0];
       onPointerMove(t.clientX, t.clientY);
     }, { passive: false });
 
     canvas.addEventListener('touchend', e => {
       e.preventDefault();
+      clearLongPress();
       onPointerUp();
     }, { passive: false });
 
@@ -781,12 +825,12 @@
       if (activeObjType && !dragging && hoverFt.x >= 0) {
         const pos = snapPlace(hoverFt.x, hoverFt.y, activeObjType);
         ctx.globalAlpha = 0.45;
-        drawObj({ type: activeObjType, x: pos.x, y: pos.y }, false);
+        drawObj({ type: activeObjType, x: pos.x, y: pos.y }, false, -1);
         ctx.globalAlpha = 1;
       }
 
       // Placed objects
-      placed.forEach((o, i) => drawObj(o, i === selected));
+      placed.forEach((o, i) => drawObj(o, i === selected, i));
 
       // Fence (yard boundary only — 3 sides, open at bottom toward house)
       const fw = Math.max(2, SCALE * 0.25);
@@ -891,7 +935,7 @@
     }
 
     // ── DRAW OBJECT ──
-    function drawObj(o, sel) {
+    function drawObj(o, sel, sel_idx) {
       const d = OBJS[o.type];
       const px = o.x * SCALE, py = o.y * SCALE;
       const pw = d.w * SCALE, ph = d.h * SCALE;
@@ -1122,6 +1166,21 @@
         ctx.shadowColor = 'rgba(0,0,0,0.9)'; ctx.shadowBlur = 3;
         ctx.fillText(d.label, px + pw / 2, py + ph / 2);
         ctx.shadowColor = 'transparent'; ctx.textBaseline = 'alphabetic';
+      }
+
+      // Long press progress ring
+      if (longPressTarget === sel_idx && longPressStart !== null) {
+        const progress = Math.min(1, (performance.now() - longPressStart) / LONG_PRESS_MS);
+        const cx2 = px + pw / 2, cy2 = py + ph / 2;
+        const ringR = Math.max(pw, ph) / 2 + 6;
+        // Background ring
+        ctx.strokeStyle = 'rgba(220,80,80,0.25)'; ctx.lineWidth = 3; ctx.setLineDash([]);
+        ctx.beginPath(); ctx.arc(cx2, cy2, ringR, 0, Math.PI * 2); ctx.stroke();
+        // Progress arc
+        ctx.strokeStyle = '#e05050'; ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(cx2, cy2, ringR, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress);
+        ctx.stroke();
       }
 
       // Selection
