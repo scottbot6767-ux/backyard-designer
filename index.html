@@ -341,6 +341,7 @@
     </div>
     <div class="sidebar-section">
       <div class="section-label">Actions</div>
+      <button class="act-btn undo-btn" onclick="doUndo()" style="opacity:0.35;pointer-events:none">Undo</button>
       <button class="act-btn" onclick="doExport()">Export PNG</button>
       <button class="act-btn danger" onclick="doClear()">Clear All</button>
     </div>
@@ -363,6 +364,7 @@
       <div class="mtabs">
         <button class="mtab active" onclick="setMTab('ground',this)">Ground</button>
         <button class="mtab" onclick="setMTab('objects',this)">Objects</button>
+        <button class="mtab-action undo-btn" onclick="doUndo()" style="opacity:0.35;pointer-events:none">Undo</button>
         <button class="mtab-action" onclick="doExport()">Export</button>
         <button class="mtab-action danger" onclick="doClear()">Clear</button>
       </div>
@@ -421,6 +423,8 @@
     let selected = null;
     let painting = false;
     let dragging = false;
+    let history = [];
+    const MAX_HISTORY = 40;
     let dragIdx = null;
     let dragOff = { x: 0, y: 0 };
     let hoverFt = { x: -1, y: -1 };
@@ -577,6 +581,34 @@
       };
     }
 
+    // ── UNDO ──
+    function saveState() {
+      history.push({
+        ground: ground.map(row => [...row]),
+        placed: placed.map(o => ({ ...o }))
+      });
+      if (history.length > MAX_HISTORY) history.shift();
+      updateUndoBtn();
+    }
+
+    function updateUndoBtn() {
+      const hasHistory = history.length > 0;
+      document.querySelectorAll('.undo-btn').forEach(b => {
+        b.style.opacity = hasHistory ? '1' : '0.35';
+        b.style.pointerEvents = hasHistory ? 'auto' : 'none';
+      });
+    }
+
+    window.doUndo = function () {
+      if (!history.length) return;
+      const prev = history.pop();
+      ground = prev.ground;
+      placed = prev.placed;
+      selected = null;
+      updateUndoBtn();
+      render();
+    };
+
     // ── POINTER HANDLERS (shared mouse + touch) ──
     function onPointerDown(clientX, clientY) {
       const { x, y } = canvasPos(clientX, clientY);
@@ -585,18 +617,21 @@
 
       const idx = getObjAt(fx, fy);
       if (idx !== -1) {
+        saveState(); // save before drag
         selected = idx; dragging = true; dragIdx = idx;
         dragOff = { x: fx - placed[idx].x, y: fy - placed[idx].y };
         canvas.style.cursor = 'grabbing';
         render(); return;
       }
       if (activeObjType) {
+        saveState();
         const pos = snapPlace(fx, fy, activeObjType);
         placed.push({ type: activeObjType, x: pos.x, y: pos.y });
         selected = placed.length - 1;
         render(); return;
       }
       if (activePaint) {
+        saveState(); // save at stroke start
         painting = true; selected = null;
         paintAt(fx, fy); render();
       }
@@ -672,7 +707,11 @@
       }
       if ((e.key === 'Delete' || e.key === 'Backspace') && selected !== null
           && document.activeElement === document.body) {
+        saveState();
         placed.splice(selected, 1); selected = null; render();
+      }
+      if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault(); doUndo();
       }
     });
 
@@ -1115,6 +1154,7 @@
 
     window.doClear = function () {
       if (!confirm('Reset the entire yard?')) return;
+      saveState();
       ground = Array.from({ length: H }, () => Array(W).fill('grass'));
       placed = []; selected = null; render();
     };
