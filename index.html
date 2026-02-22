@@ -404,6 +404,11 @@
       pool:        { label: 'Pool',         w: 18, h: 10, shape: 'rect',   color: '#3a88b8', sz: '18×10ft' },
       picnictable: { label: 'Picnic Table', w:  6, h:  3, shape: 'rect',   color: '#7a5830', sz: '6×3ft' },
       garden:      { label: 'Garden Bed',   w:  8, h:  4, shape: 'rect',   color: '#2e5820', sz: '8×4ft' },
+      treelarge:   { label: 'Tree (Large)', w: 10, h: 10, shape: 'circle', color: '#1e5218', sz: '10ft' },
+      treesmall:   { label: 'Tree (Small)', w:  6, h:  6, shape: 'circle', color: '#2a6e24', sz: '6ft' },
+      shrub:       { label: 'Shrub',        w:  4, h:  4, shape: 'circle', color: '#3a7830', sz: '4ft' },
+      verticalgarden: { label: 'Vert. Garden', w: 2, h: 6, shape: 'rect', color: '#2a5e1a', sz: '2×6ft' },
+      steps:       { label: 'Steps',        w:  5, h:  3, shape: 'rect',   color: '#9a9ea8', sz: '5×3ft' },
     };
 
     // STATE
@@ -872,8 +877,102 @@
             }
             ctx.strokeStyle = '#1e3810'; ctx.lineWidth = 1.5;
             ctx.strokeRect(px + 1, py + 1, pw - 2, ph - 2);
+          } else if (o.type === 'steps') {
+            // Steps shown as concentric rectangles (top-down elevation)
+            const steps = 3;
+            for (let s = 0; s < steps; s++) {
+              const t = s / steps;
+              const shade = Math.round(138 + s * 18);
+              ctx.fillStyle = `rgb(${shade},${shade+4},${shade+8})`;
+              ctx.fillRect(px + s * (pw / (steps * 2.5)), py + s * (ph / (steps * 2.2)),
+                pw - s * (pw / (steps * 1.25)), ph - s * (ph / (steps * 1.1)));
+            }
+            ctx.strokeStyle = '#70747e'; ctx.lineWidth = 1;
+            for (let s = 1; s < steps; s++) {
+              ctx.beginPath();
+              ctx.moveTo(px + s * (pw / (steps * 2.5)), py + s * (ph / (steps * 2.2)));
+              ctx.lineTo(px + pw - s * (pw / (steps * 2.5)), py + s * (ph / (steps * 2.2)));
+              ctx.stroke();
+            }
           }
         }
+      }
+
+      // Trees and shrubs (circles drawn above)
+      if (d.shape === 'circle' && (o.type === 'treelarge' || o.type === 'treesmall' || o.type === 'shrub')) {
+        const cx = px + pw / 2, cy = py + ph / 2;
+        const r = Math.min(pw, ph) / 2;
+        ctx.save();
+        ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = SCALE * 0.6; ctx.shadowOffsetY = 3;
+        // Outer canopy shadow
+        ctx.fillStyle = o.type === 'shrub' ? '#1e4a18' : '#143410';
+        ctx.beginPath(); ctx.arc(cx + 2, cy + 3, r - 1, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowColor = 'transparent';
+        // Main canopy layers
+        const baseColor = o.type === 'treelarge' ? '#1e5218' : o.type === 'treesmall' ? '#2a6e24' : '#3a7830';
+        const midColor  = o.type === 'treelarge' ? '#2a7030' : o.type === 'treesmall' ? '#3a8838' : '#4a9040';
+        const topColor  = o.type === 'treelarge' ? '#3a8840' : o.type === 'treesmall' ? '#4a9848' : '#5aa850';
+        ctx.fillStyle = baseColor;
+        ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+        // Mid layer — offset blobs for volume
+        ctx.fillStyle = midColor;
+        const blobR = r * 0.55;
+        [[-blobR*0.4, -blobR*0.5], [blobR*0.5, -blobR*0.3], [-blobR*0.3, blobR*0.4], [blobR*0.2, blobR*0.5]].forEach(([bx, by]) => {
+          ctx.beginPath(); ctx.arc(cx + bx, cy + by, blobR, 0, Math.PI * 2); ctx.fill();
+        });
+        // Highlight
+        ctx.fillStyle = topColor;
+        ctx.beginPath(); ctx.arc(cx - r * 0.2, cy - r * 0.2, r * 0.4, 0, Math.PI * 2); ctx.fill();
+        // Trunk (small dot center)
+        if (o.type !== 'shrub') {
+          ctx.fillStyle = '#5a3010';
+          ctx.beginPath(); ctx.arc(cx, cy, Math.max(2, SCALE * 0.12), 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
+        // Skip normal label rendering, do it here
+        const labelSize = Math.min(10, Math.max(6, pw / d.label.length * 1.0));
+        if (labelSize >= 6) {
+          ctx.font = `bold ${labelSize}px system-ui`;
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillStyle = 'rgba(255,255,255,0.9)';
+          ctx.shadowColor = 'rgba(0,0,0,1)'; ctx.shadowBlur = 4;
+          ctx.fillText(d.label, cx, cy);
+          ctx.shadowColor = 'transparent'; ctx.textBaseline = 'alphabetic';
+        }
+        // Selection ring
+        if (sel) {
+          ctx.strokeStyle = '#3cc97a'; ctx.lineWidth = 2;
+          ctx.setLineDash([4, 3]);
+          ctx.beginPath(); ctx.arc(cx, cy, r + 3, 0, Math.PI * 2); ctx.stroke();
+          ctx.setLineDash([]);
+          if (SCALE >= 8) {
+            ctx.font = '8px system-ui'; ctx.textAlign = 'center';
+            ctx.fillStyle = '#3cc97a';
+            ctx.fillText('Delete', cx, py - 4);
+          }
+        }
+        ctx.restore();
+        return; // skip normal label/selection below
+      }
+
+      // Vertical garden — wall-mounted planter look
+      if (o.type === 'verticalgarden') {
+        // Frame
+        ctx.fillStyle = '#3a2010'; ctx.fillRect(px, py, pw, ph);
+        // Planting pockets in rows
+        const pocketH = ph / 4;
+        const pocketColors = ['#4a8830','#3a7820','#5a9838','#3a6820'];
+        for (let row = 0; row < 4; row++) {
+          ctx.fillStyle = pocketColors[row % pocketColors.length];
+          ctx.fillRect(px + 2, py + row * pocketH + 2, pw - 4, pocketH - 4);
+          // Foliage blob
+          ctx.fillStyle = row % 2 === 0 ? '#60b040' : '#50a030';
+          ctx.beginPath();
+          ctx.ellipse(px + pw / 2, py + row * pocketH + pocketH * 0.45, pw / 2 - 3, pocketH * 0.35, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.strokeStyle = '#1e1008'; ctx.lineWidth = 1;
+        ctx.strokeRect(px, py, pw, ph);
       }
 
       // Label
