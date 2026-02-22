@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Backyard Designer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #161a1c;
+      --sidebar: #0f1314;
+      --surface: #1c2224;
+      --border: #242e32;
+      --text: #aabec4;
+      --muted: #3d5a62;
+      --white: #dceef4;
+      --accent: #3cc97a;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Outfit', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+      user-select: none;
+    }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: 210px;
+      min-width: 210px;
+      background: var(--sidebar);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+
+    .sidebar-header {
+      padding: 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-title {
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--white);
+    }
+
+    .sidebar-sub {
+      font-size: 0.6rem;
+      color: var(--muted);
+      margin-top: 0.25rem;
+    }
+
+    .sidebar-section {
+      padding: 0.875rem 0.875rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-label {
+      font-size: 0.56rem;
+      font-weight: 600;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.6rem;
+    }
+
+    .tool-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: none;
+      border: 1px solid transparent;
+      color: var(--text);
+      cursor: pointer;
+      font-family: 'Outfit', system-ui;
+      font-size: 0.72rem;
+      padding: 0.38rem 0.5rem;
+      text-align: left;
+      width: 100%;
+      transition: background 0.1s, color 0.1s;
+    }
+
+    .tool-btn:hover { background: var(--surface); color: var(--white); }
+
+    .tool-btn.active {
+      background: var(--surface);
+      border-color: var(--border);
+      color: var(--white);
+    }
+
+    .swatch {
+      width: 13px;
+      height: 13px;
+      border: 1px solid rgba(255,255,255,0.12);
+      flex-shrink: 0;
+    }
+
+    .obj-sz {
+      font-size: 0.56rem;
+      color: var(--muted);
+      margin-left: auto;
+    }
+
+    .brush-row {
+      display: flex;
+      gap: 0.3rem;
+      margin-top: 0.5rem;
+    }
+
+    .brush-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      cursor: pointer;
+      font-family: 'Outfit', system-ui;
+      font-size: 0.6rem;
+      padding: 3px 0;
+      flex: 1;
+      transition: all 0.1s;
+    }
+
+    .brush-btn:hover { color: var(--white); border-color: var(--muted); }
+    .brush-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(60,201,122,0.08); }
+
+    .act-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      cursor: pointer;
+      font-family: 'Outfit', system-ui;
+      font-size: 0.62rem;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      padding: 0.45rem;
+      text-transform: uppercase;
+      width: 100%;
+      margin-bottom: 0.35rem;
+      transition: all 0.1s;
+    }
+
+    .act-btn:hover { background: var(--surface); color: var(--white); border-color: var(--muted); }
+    .act-btn.danger:hover { border-color: #d04040; color: #d04040; }
+
+    /* ── MAIN ── */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .topbar {
+      height: 38px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 1.25rem;
+      gap: 2rem;
+      flex-shrink: 0;
+    }
+
+    .topbar-pill {
+      font-size: 0.62rem;
+      color: var(--muted);
+    }
+
+    .topbar-pill span { color: var(--text); }
+
+    .topbar-hint {
+      font-size: 0.6rem;
+      color: var(--muted);
+      margin-left: auto;
+      font-style: italic;
+    }
+
+    .canvas-area {
+      flex: 1;
+      overflow: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    #yard {
+      display: block;
+      cursor: crosshair;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-title">Backyard Designer</div>
+      <div class="sidebar-sub">50 ft wide · 25 ft deep</div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="section-label">Ground Cover</div>
+      <div id="paint-list"></div>
+      <div class="brush-row">
+        <button class="brush-btn active" data-brush="1" onclick="setBrush(this,1)">1 ft</button>
+        <button class="brush-btn" data-brush="3" onclick="setBrush(this,3)">3 ft</button>
+        <button class="brush-btn" data-brush="5" onclick="setBrush(this,5)">5 ft</button>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="section-label">Objects</div>
+      <div id="obj-list"></div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="section-label">Actions</div>
+      <button class="act-btn" onclick="doExport()">Export PNG</button>
+      <button class="act-btn danger" onclick="doClear()">Clear All</button>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-pill">Mode: <span id="t-mode">Paint</span></div>
+      <div class="topbar-pill">Tool: <span id="t-tool">Grass</span></div>
+      <div class="topbar-pill" id="t-pos"></div>
+      <div class="topbar-hint" id="t-hint">Click or drag to paint ground</div>
+    </div>
+    <div class="canvas-area">
+      <canvas id="yard"></canvas>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+
+    /* ── CONFIG ── */
+    const SCALE = 16;   // px per foot
+    const W = 50, H = 25;
+    const CW = W * SCALE, CH = H * SCALE;
+
+    /* ── GROUND TYPES ── */
+    const GROUND = {
+      grass:    { label: 'Grass',        color: '#4a8c38', dark: '#388028' },
+      mulch:    { label: 'Mulch',         color: '#6e4020', dark: '#542e14' },
+      concrete: { label: 'Concrete',      color: '#8a9298', dark: '#6a7278' },
+      patio:    { label: 'Patio Stone',   color: '#b4966a', dark: '#907850' },
+      dirt:     { label: 'Bare Dirt',     color: '#9a7040', dark: '#7a5428' },
+      gravel:   { label: 'Gravel',        color: '#7a8088', dark: '#5e646c' },
+    };
+
+    /* ── OBJECT TYPES ── */
+    const OBJS = {
+      trampoline:  { label: 'Trampoline',   w: 12, h: 12, shape: 'circle', color: '#282828', sz: '12 ft' },
+      swingset:    { label: 'Swing Set',    w: 14, h:  5, shape: 'rect',   color: '#7a5030', sz: '14×5 ft' },
+      sandbox:     { label: 'Sandbox',      w:  8, h:  8, shape: 'rect',   color: '#d4c060', sz: '8×8 ft' },
+      grill:       { label: 'Grill',        w:  3, h:  2, shape: 'rect',   color: '#1e1e1e', sz: '3×2 ft' },
+      patio:       { label: 'Patio',        w: 14, h: 10, shape: 'rect',   color: '#c0a070', sz: '14×10 ft' },
+      firepit:     { label: 'Fire Pit',     w:  5, h:  5, shape: 'circle', color: '#3e1a08', sz: '5 ft' },
+      shed:        { label: 'Shed',         w: 10, h:  8, shape: 'rect',   color: '#5a4030', sz: '10×8 ft' },
+      pool:        { label: 'Pool',         w: 18, h: 10, shape: 'rect',   color: '#3a88b8', sz: '18×10 ft' },
+      picnictable: { label: 'Picnic Table', w:  6, h:  3, shape: 'rect',   color: '#7a5830', sz: '6×3 ft' },
+      garden:      { label: 'Garden Bed',   w:  8, h:  4, shape: 'rect',   color: '#2e5820', sz: '8×4 ft' },
+    };
+
+    /* ── STATE ── */
+    let ground = Array.from({ length: H }, () => Array(W).fill('grass'));
+    let placed = [];          // {type, x, y}
+    let activePaint = 'grass';
+    let activeObjType = null;
+    let brushSize = 1;
+    let selected = null;
+    let painting = false;
+    let dragging = false;
+    let dragIdx = null;
+    let dragOff = { x: 0, y: 0 };
+    let hoverFt = { x: -1, y: -1 };
+    let mouseOnCanvas = false;
+
+    /* ── CANVAS ── */
+    const canvas = document.getElementById('yard');
+    canvas.width = CW;
+    canvas.height = CH;
+    const ctx = canvas.getContext('2d');
+
+    /* ── BUILD SIDEBAR ── */
+    const paintList = document.getElementById('paint-list');
+    Object.entries(GROUND).forEach(([key, g]) => {
+      const btn = document.createElement('button');
+      btn.className = 'tool-btn' + (key === 'grass' ? ' active' : '');
+      btn.id = 'pb-' + key;
+      btn.innerHTML = `<div class="swatch" style="background:${g.color}"></div>${g.label}`;
+      btn.onclick = () => pickPaint(key);
+      paintList.appendChild(btn);
+    });
+
+    const objList = document.getElementById('obj-list');
+    Object.entries(OBJS).forEach(([key, o]) => {
+      const btn = document.createElement('button');
+      btn.className = 'tool-btn';
+      btn.id = 'ob-' + key;
+      btn.innerHTML = `<div class="swatch" style="background:${o.color}"></div>${o.label}<span class="obj-sz">${o.sz}</span>`;
+      btn.onclick = () => pickObj(key);
+      objList.appendChild(btn);
+    });
+
+    /* ── TOOL SELECTION ── */
+    function pickPaint(key) {
+      activePaint = key;
+      activeObjType = null;
+      selected = null;
+      document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('pb-' + key).classList.add('active');
+      setInfo('Paint', GROUND[key].label, 'Click or drag to paint ground');
+      canvas.style.cursor = 'crosshair';
+      render();
+    }
+
+    window.pickObj = function (key) {
+      activeObjType = key;
+      activePaint = null;
+      selected = null;
+      document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('ob-' + key).classList.add('active');
+      setInfo('Place', OBJS[key].label, 'Click to place · drag placed objects to move · Del to remove');
+      canvas.style.cursor = 'crosshair';
+      render();
+    };
+
+    window.setBrush = function (el, size) {
+      brushSize = size;
+      document.querySelectorAll('.brush-btn').forEach(b => b.classList.remove('active'));
+      el.classList.add('active');
+    };
+
+    function setInfo(mode, tool, hint) {
+      document.getElementById('t-mode').textContent = mode;
+      document.getElementById('t-tool').textContent = tool;
+      document.getElementById('t-hint').textContent = hint;
+    }
+
+    /* ── HELPERS ── */
+    function canvasPos(e) {
+      const r = canvas.getBoundingClientRect();
+      return {
+        x: (e.clientX - r.left) * (CW / r.width),
+        y: (e.clientY - r.top) * (CH / r.height)
+      };
+    }
+
+    function toFt(px) { return px / SCALE; }
+
+    function getObjAt(fx, fy) {
+      for (let i = placed.length - 1; i >= 0; i--) {
+        const o = placed[i], d = OBJS[o.type];
+        if (fx >= o.x && fx <= o.x + d.w && fy >= o.y && fy <= o.y + d.h) return i;
+      }
+      return -1;
+    }
+
+    function paintAt(fx, fy) {
+      const half = Math.floor(brushSize / 2);
+      const cx = Math.floor(fx), cy = Math.floor(fy);
+      for (let dy = -half; dy <= half; dy++) {
+        for (let dx = -half; dx <= half; dx++) {
+          const gx = cx + dx, gy = cy + dy;
+          if (gx >= 0 && gx < W && gy >= 0 && gy < H) ground[gy][gx] = activePaint;
+        }
+      }
+    }
+
+    function snapPlace(fx, fy, type) {
+      const d = OBJS[type];
+      return {
+        x: Math.max(0, Math.min(W - d.w, Math.round(fx - d.w / 2))),
+        y: Math.max(0, Math.min(H - d.h, Math.round(fy - d.h / 2)))
+      };
+    }
+
+    /* ── MOUSE ── */
+    canvas.addEventListener('mouseenter', () => { mouseOnCanvas = true; });
+    canvas.addEventListener('mouseleave', () => {
+      mouseOnCanvas = false;
+      hoverFt = { x: -1, y: -1 };
+      painting = false;
+      if (!dragging) render();
+    });
+
+    canvas.addEventListener('mousedown', e => {
+      e.preventDefault();
+      const { x, y } = canvasPos(e);
+      const fx = toFt(x), fy = toFt(y);
+
+      // Click on existing object: start drag
+      const idx = getObjAt(fx, fy);
+      if (idx !== -1) {
+        selected = idx;
+        dragging = true;
+        dragIdx = idx;
+        dragOff = { x: fx - placed[idx].x, y: fy - placed[idx].y };
+        canvas.style.cursor = 'grabbing';
+        render();
+        return;
+      }
+
+      // Place new object
+      if (activeObjType) {
+        const pos = snapPlace(fx, fy, activeObjType);
+        placed.push({ type: activeObjType, x: pos.x, y: pos.y });
+        selected = placed.length - 1;
+        render();
+        return;
+      }
+
+      // Paint
+      if (activePaint) {
+        painting = true;
+        selected = null;
+        paintAt(fx, fy);
+        render();
+      }
+    });
+
+    document.addEventListener('mousemove', e => {
+      if (!mouseOnCanvas && !dragging) return;
+      const { x, y } = canvasPos(e);
+      const fx = toFt(x), fy = toFt(y);
+      hoverFt = { x: fx, y: fy };
+
+      const gx = Math.floor(fx), gy = Math.floor(fy);
+      document.getElementById('t-pos').textContent =
+        (gx >= 0 && gx < W && gy >= 0 && gy < H) ? `${gx},${gy} ft` : '';
+
+      if (dragging && dragIdx !== null) {
+        const d = OBJS[placed[dragIdx].type];
+        placed[dragIdx].x = Math.max(0, Math.min(W - d.w, fx - dragOff.x));
+        placed[dragIdx].y = Math.max(0, Math.min(H - d.h, fy - dragOff.y));
+        render();
+        return;
+      }
+
+      if (painting && activePaint) { paintAt(fx, fy); render(); return; }
+
+      if (mouseOnCanvas) {
+        const hit = getObjAt(fx, fy);
+        canvas.style.cursor = hit !== -1 ? 'grab' : (activePaint ? 'crosshair' : activeObjType ? 'crosshair' : 'default');
+        render();
+      }
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (dragging) { dragging = false; dragIdx = null; canvas.style.cursor = 'grab'; }
+      painting = false;
+    });
+
+    /* ── KEYBOARD ── */
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        activeObjType = null; selected = null;
+        document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+        if (!activePaint) pickPaint('grass');
+        render();
+      }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selected !== null
+          && document.activeElement === document.body) {
+        placed.splice(selected, 1);
+        selected = null;
+        render();
+      }
+    });
+
+    /* ── RENDER ── */
+    function render() {
+      ctx.clearRect(0, 0, CW, CH);
+
+      // Ground cells
+      for (let gy = 0; gy < H; gy++) {
+        for (let gx = 0; gx < W; gx++) {
+          ctx.fillStyle = GROUND[ground[gy][gx]].color;
+          ctx.fillRect(gx * SCALE, gy * SCALE, SCALE, SCALE);
+        }
+      }
+
+      // Fine grid (1ft)
+      ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+      ctx.lineWidth = 0.5;
+      for (let gx = 0; gx <= W; gx++) {
+        ctx.beginPath(); ctx.moveTo(gx * SCALE, 0); ctx.lineTo(gx * SCALE, CH); ctx.stroke();
+      }
+      for (let gy = 0; gy <= H; gy++) {
+        ctx.beginPath(); ctx.moveTo(0, gy * SCALE); ctx.lineTo(CW, gy * SCALE); ctx.stroke();
+      }
+
+      // 5ft grid
+      ctx.strokeStyle = 'rgba(0,0,0,0.22)';
+      ctx.lineWidth = 1;
+      for (let gx = 0; gx <= W; gx += 5) {
+        ctx.beginPath(); ctx.moveTo(gx * SCALE, 0); ctx.lineTo(gx * SCALE, CH); ctx.stroke();
+      }
+      for (let gy = 0; gy <= H; gy += 5) {
+        ctx.beginPath(); ctx.moveTo(0, gy * SCALE); ctx.lineTo(CW, gy * SCALE); ctx.stroke();
+      }
+
+      // Rulers
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
+      ctx.font = '8px system-ui';
+      ctx.textAlign = 'center';
+      for (let gx = 5; gx <= W; gx += 5) {
+        ctx.fillText(gx + '\'', gx * SCALE, 10);
+      }
+      ctx.textAlign = 'left';
+      for (let gy = 5; gy <= H; gy += 5) {
+        ctx.fillText(gy + '\'', 2, gy * SCALE - 2);
+      }
+
+      // Paint brush preview
+      if (activePaint && mouseOnCanvas && !dragging && hoverFt.x >= 0) {
+        const half = Math.floor(brushSize / 2);
+        const cx = Math.floor(hoverFt.x), cy = Math.floor(hoverFt.y);
+        ctx.fillStyle = GROUND[activePaint].color + '90';
+        ctx.strokeStyle = GROUND[activePaint].dark;
+        ctx.lineWidth = 1;
+        for (let dy = -half; dy <= half; dy++) {
+          for (let dx = -half; dx <= half; dx++) {
+            const gx = cx + dx, gy = cy + dy;
+            if (gx >= 0 && gx < W && gy >= 0 && gy < H) {
+              ctx.fillRect(gx * SCALE, gy * SCALE, SCALE, SCALE);
+              ctx.strokeRect(gx * SCALE + 0.5, gy * SCALE + 0.5, SCALE - 1, SCALE - 1);
+            }
+          }
+        }
+      }
+
+      // Object placement ghost
+      if (activeObjType && mouseOnCanvas && !dragging && hoverFt.x >= 0) {
+        const pos = snapPlace(hoverFt.x, hoverFt.y, activeObjType);
+        ctx.globalAlpha = 0.45;
+        drawObj({ type: activeObjType, x: pos.x, y: pos.y }, false);
+        ctx.globalAlpha = 1;
+      }
+
+      // Placed objects
+      placed.forEach((o, i) => drawObj(o, i === selected));
+
+      // Fence border
+      ctx.strokeStyle = '#4a2e10';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(2, 2, CW - 4, CH - 4);
+
+      // Fence posts at corners and 10ft intervals
+      ctx.fillStyle = '#3a2208';
+      const postSize = 5;
+      for (let gx = 0; gx <= W; gx += 10) {
+        for (let gy = 0; gy <= H; gy += 10) {
+          if (gx % 10 === 0 || gy % 10 === 0) {
+            if (gx === 0 || gx === W || gy === 0 || gy === H) {
+              ctx.fillRect(gx * SCALE - postSize / 2, gy * SCALE - postSize / 2, postSize, postSize);
+            }
+          }
+        }
+      }
+    }
+
+    /* ── DRAW OBJECT ── */
+    function drawObj(o, sel) {
+      const d = OBJS[o.type];
+      const px = o.x * SCALE, py = o.y * SCALE;
+      const pw = d.w * SCALE, ph = d.h * SCALE;
+
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,0,0,0.45)';
+      ctx.shadowBlur = 8;
+      ctx.shadowOffsetY = 3;
+
+      if (d.shape === 'circle') {
+        const cx = px + pw / 2, cy = py + ph / 2;
+        const r = Math.min(pw, ph) / 2 - 2;
+        ctx.fillStyle = d.color;
+        ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowColor = 'transparent';
+
+        if (o.type === 'trampoline') {
+          // Springs ring
+          ctx.strokeStyle = '#484848'; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.arc(cx, cy, r - 4, 0, Math.PI * 2); ctx.stroke();
+          // Mat
+          ctx.fillStyle = '#111';
+          ctx.beginPath(); ctx.arc(cx, cy, r - 8, 0, Math.PI * 2); ctx.fill();
+          // Cross
+          ctx.strokeStyle = '#222'; ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(cx - r + 10, cy); ctx.lineTo(cx + r - 10, cy);
+          ctx.moveTo(cx, cy - r + 10); ctx.lineTo(cx, cy + r - 10);
+          ctx.stroke();
+          // Spring ticks
+          for (let a = 0; a < 360; a += 30) {
+            const rad = a * Math.PI / 180;
+            ctx.strokeStyle = '#555'; ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(cx + (r - 8) * Math.cos(rad), cy + (r - 8) * Math.sin(rad));
+            ctx.lineTo(cx + r * Math.cos(rad), cy + r * Math.sin(rad));
+            ctx.stroke();
+          }
+        } else if (o.type === 'firepit') {
+          ctx.strokeStyle = '#703010'; ctx.lineWidth = 3;
+          ctx.beginPath(); ctx.arc(cx, cy, r - 2, 0, Math.PI * 2); ctx.stroke();
+          ctx.fillStyle = '#c03808';
+          ctx.beginPath(); ctx.arc(cx, cy, r - 8, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#f08020';
+          ctx.beginPath(); ctx.arc(cx, cy, r - 14, 0, Math.PI * 2); ctx.fill();
+        }
+      } else {
+        ctx.fillStyle = d.color;
+        ctx.fillRect(px, py, pw, ph);
+        ctx.shadowColor = 'transparent';
+
+        if (o.type === 'swingset') {
+          ctx.strokeStyle = '#5a3818'; ctx.lineWidth = 2.5;
+          // Top bar
+          ctx.beginPath(); ctx.moveTo(px + 10, py + 3); ctx.lineTo(px + pw - 10, py + 3); ctx.stroke();
+          // A-frames
+          [[px + 10, px + 4], [px + pw - 10, px + pw - 4]].forEach(([top, bot]) => {
+            ctx.beginPath();
+            ctx.moveTo(top, py + 3); ctx.lineTo(bot, py + ph - 2);
+            ctx.moveTo(top, py + 3); ctx.lineTo(top + (bot - top) * -1, py + ph - 2);
+            ctx.stroke();
+          });
+          // Swing chains & seats
+          ctx.strokeStyle = '#8a6030'; ctx.lineWidth = 1;
+          [0.25, 0.5, 0.75].forEach(t => {
+            const sx = px + pw * t;
+            ctx.beginPath(); ctx.moveTo(sx, py + 3); ctx.lineTo(sx - 5, py + ph - 6); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(sx, py + 3); ctx.lineTo(sx + 5, py + ph - 6); ctx.stroke();
+            ctx.fillStyle = '#7a4020';
+            ctx.fillRect(sx - 6, py + ph - 8, 12, 4);
+          });
+        } else if (o.type === 'sandbox') {
+          // Wooden frame
+          ctx.strokeStyle = '#9a6820'; ctx.lineWidth = 4;
+          ctx.strokeRect(px + 2, py + 2, pw - 4, ph - 4);
+          // Sand
+          ctx.fillStyle = '#c8b048';
+          ctx.fillRect(px + 5, py + 5, pw - 10, ph - 10);
+          // Sand details
+          ctx.fillStyle = '#e0c860';
+          for (let i = 0; i < 8; i++) {
+            const sx = px + 8 + (i * 18) % (pw - 18);
+            const sy = py + 8 + (i * 13) % (ph - 18);
+            ctx.beginPath(); ctx.arc(sx, sy, 3, 0, Math.PI * 2); ctx.fill();
+          }
+        } else if (o.type === 'grill') {
+          // Body
+          ctx.fillStyle = '#111';
+          ctx.fillRect(px + 3, py, pw - 6, ph * 0.65);
+          // Lid
+          ctx.fillStyle = '#2a2a2a';
+          ctx.beginPath();
+          ctx.ellipse(px + pw / 2, py + 2, (pw - 6) / 2, 5, 0, Math.PI, 0);
+          ctx.fill();
+          // Grates
+          ctx.strokeStyle = '#383838'; ctx.lineWidth = 1;
+          for (let gi = 0.25; gi < 1; gi += 0.25) {
+            ctx.beginPath();
+            ctx.moveTo(px + 4, py + ph * gi * 0.65);
+            ctx.lineTo(px + pw - 4, py + ph * gi * 0.65);
+            ctx.stroke();
+          }
+          // Legs
+          ctx.strokeStyle = '#333'; ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(px + 6, py + ph * 0.65); ctx.lineTo(px + 4, py + ph);
+          ctx.moveTo(px + pw - 6, py + ph * 0.65); ctx.lineTo(px + pw - 4, py + ph);
+          ctx.stroke();
+        } else if (o.type === 'patio') {
+          // Pavers grid
+          ctx.strokeStyle = '#907050'; ctx.lineWidth = 1.5;
+          const tW = SCALE * 3, tH = SCALE * 2.5;
+          for (let tx = px; tx < px + pw; tx += tW) {
+            ctx.beginPath(); ctx.moveTo(tx, py); ctx.lineTo(tx, py + ph); ctx.stroke();
+          }
+          for (let ty = py; ty < py + ph; ty += tH) {
+            ctx.beginPath(); ctx.moveTo(px, ty); ctx.lineTo(px + pw, ty); ctx.stroke();
+          }
+          ctx.strokeStyle = '#706040'; ctx.lineWidth = 2;
+          ctx.strokeRect(px, py, pw, ph);
+        } else if (o.type === 'shed') {
+          // Walls
+          ctx.fillStyle = '#4a3428';
+          ctx.fillRect(px, py + ph * 0.28, pw, ph * 0.72);
+          // Roof
+          ctx.fillStyle = '#2e1e10';
+          ctx.beginPath();
+          ctx.moveTo(px - 4, py + ph * 0.3);
+          ctx.lineTo(px + pw / 2, py + 2);
+          ctx.lineTo(px + pw + 4, py + ph * 0.3);
+          ctx.closePath(); ctx.fill();
+          // Door
+          ctx.fillStyle = '#2a1a0c';
+          ctx.fillRect(px + pw / 2 - 8, py + ph * 0.6, 16, ph * 0.4);
+          // Door knob
+          ctx.fillStyle = '#c8a030';
+          ctx.beginPath(); ctx.arc(px + pw / 2 + 5, py + ph * 0.78, 2, 0, Math.PI * 2); ctx.fill();
+          // Window
+          ctx.fillStyle = '#5090a0';
+          ctx.fillRect(px + 8, py + ph * 0.38, 14, 12);
+          ctx.strokeStyle = '#2060708'; ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(px + 8, py + ph * 0.38 + 6); ctx.lineTo(px + 22, py + ph * 0.38 + 6);
+          ctx.moveTo(px + 15, py + ph * 0.38); ctx.lineTo(px + 15, py + ph * 0.38 + 12);
+          ctx.stroke();
+        } else if (o.type === 'pool') {
+          // Water
+          ctx.fillStyle = '#3888c0';
+          ctx.fillRect(px + 4, py + 4, pw - 8, ph - 8);
+          // Waves
+          ctx.strokeStyle = '#60a8d8'; ctx.lineWidth = 1.5;
+          for (let wy = py + 14; wy < py + ph - 6; wy += 14) {
+            ctx.beginPath(); ctx.moveTo(px + 6, wy);
+            for (let wx = px + 6; wx < px + pw - 6; wx += 18) {
+              ctx.quadraticCurveTo(wx + 9, wy - 5, wx + 18, wy);
+            }
+            ctx.stroke();
+          }
+          // Pool deck border
+          ctx.strokeStyle = '#2068a0'; ctx.lineWidth = 4;
+          ctx.strokeRect(px + 2, py + 2, pw - 4, ph - 4);
+          // Ladder
+          ctx.strokeStyle = '#c0c0c0'; ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(px + pw - 8, py + 4); ctx.lineTo(px + pw - 8, py + 18);
+          ctx.moveTo(px + pw - 14, py + 4); ctx.lineTo(px + pw - 14, py + 18);
+          ctx.moveTo(px + pw - 14, py + 8); ctx.lineTo(px + pw - 8, py + 8);
+          ctx.moveTo(px + pw - 14, py + 14); ctx.lineTo(px + pw - 8, py + 14);
+          ctx.stroke();
+        } else if (o.type === 'picnictable') {
+          // Table surface
+          ctx.fillStyle = '#6a4828';
+          ctx.fillRect(px + 4, py + ph * 0.28, pw - 8, ph * 0.45);
+          // Benches
+          ctx.fillStyle = '#7a5530';
+          ctx.fillRect(px, py + ph * 0.08, pw, ph * 0.16);
+          ctx.fillRect(px, py + ph * 0.76, pw, ph * 0.16);
+          // Legs
+          ctx.strokeStyle = '#4a2e14'; ctx.lineWidth = 2;
+          [[0.2, 0.8], [0.8, 0.2]].forEach(([t1, t2]) => {
+            ctx.beginPath();
+            ctx.moveTo(px + pw * t1, py + ph * 0.24);
+            ctx.lineTo(px + pw * t2, py + ph * 0.73);
+            ctx.stroke();
+          });
+        } else if (o.type === 'garden') {
+          ctx.fillStyle = '#264818';
+          ctx.fillRect(px, py, pw, ph);
+          // Mulch/soil
+          ctx.fillStyle = '#3a5a20';
+          // Plants/bushes
+          const rows = Math.floor(d.h / 1.5);
+          const cols = Math.floor(d.w / 1.5);
+          for (let row = 0; row < rows; row++) {
+            for (let col = 0; col < cols; col++) {
+              const plantX = px + (col + 0.75) * d.w / cols * SCALE;
+              const plantY = py + (row + 0.75) * d.h / rows * SCALE;
+              const color = (row + col) % 2 === 0 ? '#50a030' : '#3a8020';
+              ctx.fillStyle = color;
+              ctx.beginPath(); ctx.arc(plantX, plantY, 5, 0, Math.PI * 2); ctx.fill();
+            }
+          }
+          ctx.strokeStyle = '#1e3810'; ctx.lineWidth = 2;
+          ctx.strokeRect(px + 1, py + 1, pw - 2, ph - 2);
+        }
+      }
+
+      // Object label
+      ctx.font = `bold ${Math.min(11, Math.max(7, pw / d.label.length * 1.1))}px system-ui`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.shadowColor = 'rgba(0,0,0,0.9)';
+      ctx.shadowBlur = 4;
+      ctx.fillText(d.label, px + pw / 2, py + ph / 2);
+      ctx.shadowColor = 'transparent';
+      ctx.textBaseline = 'alphabetic';
+
+      // Selection ring
+      if (sel) {
+        ctx.strokeStyle = '#3cc97a';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 3]);
+        if (d.shape === 'circle') {
+          const r2 = Math.min(pw, ph) / 2 + 3;
+          ctx.beginPath(); ctx.arc(px + pw / 2, py + ph / 2, r2, 0, Math.PI * 2); ctx.stroke();
+        } else {
+          ctx.strokeRect(px - 3, py - 3, pw + 6, ph + 6);
+        }
+        ctx.setLineDash([]);
+        ctx.font = '9px system-ui'; ctx.textAlign = 'center';
+        ctx.fillStyle = '#3cc97a';
+        ctx.fillText('Delete to remove', px + pw / 2, py - 6);
+      }
+
+      ctx.restore();
+    }
+
+    /* ── ACTIONS ── */
+    window.doExport = function () {
+      const link = document.createElement('a');
+      link.download = 'backyard.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    };
+
+    window.doClear = function () {
+      if (!confirm('Reset the entire yard?')) return;
+      ground = Array.from({ length: H }, () => Array(W).fill('grass'));
+      placed = []; selected = null;
+      render();
+    };
+
+    /* ── INIT ── */
+    pickPaint('grass');
+    render();
+
+  })();
+  </script>
+</body>
+</html>
