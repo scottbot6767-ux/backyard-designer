@@ -383,6 +383,7 @@
   <script>
   (function () {
     const W = 50, H = 25; // yard feet
+    const HOUSE_H = 5;    // extra feet below yard for house visual
 
     const GROUND = {
       grass:    { label: 'Grass',       color: '#4a8c38', dark: '#388028' },
@@ -439,14 +440,14 @@
       const availW = window.innerWidth - sidebarW - padding;
       const availH = window.innerHeight - topbarH - bottomH - padding;
       const scaleW = Math.floor(availW / W);
-      const scaleH = Math.floor(availH / H);
+      const scaleH = Math.floor(availH / (H + HOUSE_H));
       return Math.max(5, Math.min(scaleW, scaleH, 24));
     }
 
     function resizeCanvas() {
       SCALE = calcScale();
       canvas.width = W * SCALE;
-      canvas.height = H * SCALE;
+      canvas.height = (H + HOUSE_H) * SCALE;
       render();
     }
 
@@ -687,21 +688,23 @@
         }
       }
 
-      // Fine grid
+      const yardH = H * SCALE;
+
+      // Fine grid (yard only)
       ctx.strokeStyle = 'rgba(0,0,0,0.1)';
       ctx.lineWidth = 0.5;
       for (let gx = 0; gx <= W; gx++) {
-        ctx.beginPath(); ctx.moveTo(gx * SCALE, 0); ctx.lineTo(gx * SCALE, canvas.height); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(gx * SCALE, 0); ctx.lineTo(gx * SCALE, yardH); ctx.stroke();
       }
       for (let gy = 0; gy <= H; gy++) {
         ctx.beginPath(); ctx.moveTo(0, gy * SCALE); ctx.lineTo(canvas.width, gy * SCALE); ctx.stroke();
       }
 
-      // 5ft grid
+      // 5ft grid (yard only)
       ctx.strokeStyle = 'rgba(0,0,0,0.22)';
       ctx.lineWidth = 1;
       for (let gx = 0; gx <= W; gx += 5) {
-        ctx.beginPath(); ctx.moveTo(gx * SCALE, 0); ctx.lineTo(gx * SCALE, canvas.height); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(gx * SCALE, 0); ctx.lineTo(gx * SCALE, yardH); ctx.stroke();
       }
       for (let gy = 0; gy <= H; gy += 5) {
         ctx.beginPath(); ctx.moveTo(0, gy * SCALE); ctx.lineTo(canvas.width, gy * SCALE); ctx.stroke();
@@ -746,10 +749,106 @@
       // Placed objects
       placed.forEach((o, i) => drawObj(o, i === selected));
 
-      // Fence
+      // Fence (yard boundary only — 3 sides, open at bottom toward house)
+      const fw = Math.max(2, SCALE * 0.25);
       ctx.strokeStyle = '#4a2e10';
-      ctx.lineWidth = Math.max(2, SCALE * 0.25);
-      ctx.strokeRect(1, 1, canvas.width - 2, canvas.height - 2);
+      ctx.lineWidth = fw;
+      ctx.beginPath();
+      ctx.moveTo(1, yardH);          // bottom-left
+      ctx.lineTo(1, 1);              // top-left
+      ctx.lineTo(canvas.width - 1, 1);   // top-right
+      ctx.lineTo(canvas.width - 1, yardH); // bottom-right
+      ctx.stroke();
+
+      // ── HOUSE ──
+      const hy = yardH;
+      const hh = HOUSE_H * SCALE;
+      const hw = canvas.width;
+      const ridge = hy + hh * 0.38;
+
+      // Foundation / wall strip
+      ctx.fillStyle = '#b0a898';
+      ctx.fillRect(0, hy, hw, hh);
+
+      // Roof panels (two slopes meeting at ridge)
+      // Left slope shading
+      ctx.fillStyle = '#9a9080';
+      ctx.fillRect(0, hy, hw, ridge - hy);
+
+      // Ridge line
+      ctx.strokeStyle = '#6a6058';
+      ctx.lineWidth = Math.max(2, SCALE * 0.2);
+      ctx.beginPath(); ctx.moveTo(0, ridge); ctx.lineTo(hw, ridge); ctx.stroke();
+
+      // Shingle lines (above ridge = closer slope, denser)
+      ctx.strokeStyle = 'rgba(80,70,60,0.3)';
+      ctx.lineWidth = 0.8;
+      const shingleSpacing = Math.max(4, SCALE * 0.35);
+      for (let sy = hy + shingleSpacing; sy < ridge; sy += shingleSpacing) {
+        ctx.beginPath(); ctx.moveTo(0, sy); ctx.lineTo(hw, sy); ctx.stroke();
+      }
+      // Shingle lines below ridge (far slope, lighter)
+      ctx.strokeStyle = 'rgba(60,50,40,0.18)';
+      for (let sy = ridge + shingleSpacing; sy < hy + hh; sy += shingleSpacing) {
+        ctx.beginPath(); ctx.moveTo(0, sy); ctx.lineTo(hw, sy); ctx.stroke();
+      }
+
+      // Vertical shingle dividers
+      ctx.strokeStyle = 'rgba(80,70,60,0.15)';
+      ctx.lineWidth = 0.5;
+      for (let sx = SCALE * 2; sx < hw; sx += SCALE * 2) {
+        ctx.beginPath(); ctx.moveTo(sx, hy); ctx.lineTo(sx, hy + hh); ctx.stroke();
+      }
+
+      // Chimney
+      const chX = hw * 0.72, chW = SCALE * 2.5, chH = hh * 0.7;
+      ctx.fillStyle = '#7a6050';
+      ctx.fillRect(chX, hy, chW, chH);
+      ctx.strokeStyle = '#5a4030'; ctx.lineWidth = 1;
+      ctx.strokeRect(chX, hy, chW, chH);
+      // Chimney cap
+      ctx.fillStyle = '#5a4030';
+      ctx.fillRect(chX - 2, hy, chW + 4, Math.max(3, SCALE * 0.2));
+
+      // Back door / sliding glass door
+      const doorW = SCALE * 5, doorH = hh * 0.72;
+      const doorX = hw / 2 - doorW / 2;
+      ctx.fillStyle = '#8aacb8';
+      ctx.fillRect(doorX, hy, doorW, doorH);
+      // Door frame
+      ctx.strokeStyle = '#5a7888'; ctx.lineWidth = 1.5;
+      ctx.strokeRect(doorX, hy, doorW, doorH);
+      // Door center divider
+      ctx.beginPath(); ctx.moveTo(doorX + doorW / 2, hy); ctx.lineTo(doorX + doorW / 2, hy + doorH); ctx.stroke();
+      // Door handle
+      ctx.fillStyle = '#c8a840';
+      ctx.fillRect(doorX + doorW / 2 - 3, hy + doorH * 0.45, 6, 3);
+
+      // Windows (left and right of door)
+      [[hw * 0.18, SCALE * 3.5], [hw * 0.72 + SCALE * 3.5, SCALE * 3.5]].forEach(([wx, ww]) => {
+        if (wx + ww < hw - SCALE) {
+          const wh = hh * 0.5;
+          ctx.fillStyle = '#8aacb8';
+          ctx.fillRect(wx, hy + (hh - wh) * 0.1, ww, wh);
+          ctx.strokeStyle = '#5a7888'; ctx.lineWidth = 1.5;
+          ctx.strokeRect(wx, hy + (hh - wh) * 0.1, ww, wh);
+          // Cross divider
+          ctx.beginPath();
+          ctx.moveTo(wx + ww / 2, hy + (hh - wh) * 0.1);
+          ctx.lineTo(wx + ww / 2, hy + (hh - wh) * 0.1 + wh);
+          ctx.moveTo(wx, hy + (hh - wh) * 0.1 + wh / 2);
+          ctx.lineTo(wx + ww, hy + (hh - wh) * 0.1 + wh / 2);
+          ctx.stroke();
+        }
+      });
+
+      // "HOUSE" label
+      const hFontSize = Math.max(9, Math.min(16, SCALE * 1.1));
+      ctx.font = `600 ${hFontSize}px Outfit, system-ui`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = 'rgba(60,48,38,0.7)';
+      ctx.fillText('HOUSE', hw / 2, hy + hh * 0.82);
+      ctx.textBaseline = 'alphabetic';
     }
 
     // ── DRAW OBJECT ──
